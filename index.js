@@ -72,13 +72,19 @@ module.exports = (path, options) => (ctx, next) => {
       resolve()
     })
 
-    proxy.web(ctx.req, ctx.res, httpProxyOpts, e => {
+    proxy.web(ctx.req, ctx.res, httpProxyOpts, (e, res) => {
+      console.log('proxy error:', e, res.statusCode);
       const status = {
         ECONNREFUSED: 503,
         ETIMEOUT: 504
       }[e.code]
-      ctx.status = status || 500
-      resolve()
+      ctx.status = res.statusCode || status || 500;
+      ctx.body = {
+        success: false,
+        code: e.code,
+        message: e.message,
+      };
+      resolve();
     })
   })
 }
