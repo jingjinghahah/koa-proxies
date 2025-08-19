@@ -65,20 +65,27 @@ module.exports = (path, options) => (ctx, next) => {
     // Let the promise be solved correctly after the proxy.web.
     // The solution comes from https://github.com/nodejitsu/node-http-proxy/issues/951#issuecomment-179904134
     ctx.res.on('close', () => {
-      reject(new Error(`Http response closed while proxying ${ctx.req.oldPath}`))
+      resolve()
     })
 
     ctx.res.on('finish', () => {
       resolve()
     })
 
+    ctx.res.on('timeout', (a) => {
+      ctx.res.statusCode = 504;
+      // 连接超时，超时时间为 a?.timeout
+      ctx.res.end(`Socket timeout, timeout: ${a?.timeout}ms`);
+      resolve()
+    })
+  
     proxy.web(ctx.req, ctx.res, httpProxyOpts, (e, res) => {
-      console.log('proxy error:', e, res.statusCode);
+      console.log('proxy error:', e, e.code, res.statusCode);
       const status = {
         ECONNREFUSED: 503,
         ETIMEOUT: 504
       }[e.code]
-      ctx.status = res.statusCode || status || 500;
+      ctx.status = res.statusCode || status || 502;
       ctx.body = {
         success: false,
         code: e.code,
